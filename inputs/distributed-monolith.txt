@@ -1,0 +1,64 @@
+ June 28, 2024
+
+The current trend in front-end development is to be full stack. Being full-stack, has advantages from an efficiency point of view. However, having people proficient in both the front and backend can be challenging. The trend is that many javascript frameworks, initially only client-side, are moving to the backend and becoming full-stack frameworks. Backend change is happening gradually, probably starting with server-side rendering (SSR). Now, it is possible to have react code in the backend, which is referred to as react server components (RSC). Such an approach is not new. PHP, Rails, and Django have been doing that for decades now. Within similar timing, we saw the rise of HTMX where the backend levering HATEOAS returns HTML rather than just returning JSON. Interesting times. React is not the only framework (because it's not a lib) doing such a thing; we also have Next.JS (on top of React), Svelte, Nuxt and here is a good article on server components if you want learn more form the code point of view. For this post, I would like to talk a bit more about software architecture, especially at scale, and the tradeoffs and risks of such an approach. This post is not a rant. However, we must be careful with some of the decisions and choices we make going forward; otherwise, we will end up with more monoliths and even worth with distributed monoliths.
+Frontend Frameworks expanding to the Backend
+To be clear, I like React. React is a powerful and reasonable solution. However, I dont like unnecessary complexity, I never liked state managers like Redux. Now, things are getting more complex. IMHO, Java made a big mistake by trying to do everything in Java, from mobile, desktop, web, and server. I never appreciated JSF. Javascript/React is making the same mistake. 
+
+But is it wrong to have a full-stack framework? No. It makes a lot of sense for small businesses. Validating an idea and doing a quick prototype also makes a lot of sense. Is this the right approach for big enterprises and scale? No. I don't think it is.
+When does it make sense?
+Let's start with people. If your team consists mainly of JavaScript engineers, they are very good. Then this is okay. What usually happens in big companies is that there is plenty of specialization (which sometimes is an anti-pattern (hyperspecialization) and generates silos). But in general, it is good to have specialization and experts. So, much of an approach makes more sense for small/medium-sized companies where Javascript would be the primary language and you have expertise. 
+
+Client vs Server-side Rendering
+
+Simply put, we can render it on the client or on the server. There are more elaborated partners where rendering is partial and dynamic, often called hydration. But we can simplify. SSR is good. Rendering components on the backend is a good thing. There are performance benefits. We can cache the rendered components, which makes the first load much faster and, to some degree, more straightforward. Things are never so simple, and you might need to mix client and server code. That's where we start having complications like duplicated code.
+Enter the Monolith
+You might be thinking, what's wrong with this react calling a database directly? After all, we are removing layers and making it simpler - what could possibly go wrong?
+
+Monolith (tends to grow) 
+
+Small businesses and simple applications are all fine. But we need to understand that software tends to grow. There is a trend of micro-frontends having more fine-grained applications (even with SPA). It does not take much time, so you have two applications, and they could easily keep building in the same direction, which is sharing the database.
+
+You might claim that accessing the database is a pattern, but remember that patterns have context. It is usually a bad idea for applications to go directly to the data layer; that is why, in architecture, we have SOA and APIs.
+
+Monoliths can become Distributed Monoliths
+
+It does not take a long time to go from two applications having dozens to hundreds. Now, we see two common routes here: the monolith route, which would be the opposite of this picture. 
+Shared Database access is a anti-pattern
+When we share a database across multiple applications we are asking for trouble. We can have problems with scalability, the database can easily become a single point of failure (SPOF), and maintenance and evolution can be very challenging. 
+
+The problem is also that we need to break isolation. You probably think such issues can be easily fixed by having a shared library between all applications or using some ORM like Drizzle or Prisma. Perhaps you can create a shared internal library using such ORMs and reuse all the code; what could possibly go wrong with that? 
+Distributed Monolith
+
+What if there are other languages on the picture and maybe services accessing the same database? 
+
+Small Distributed Monolith
+
+What starts small, under no review, can easily become a big (distributed) problem. What if you have hundreds of services applications using that same database? 
+
+Big Distributed Monolith
+
+It's not okay. Again, we are breaking isolation by duplicating code between Node.JS and Rust. What happens if there are ten other databases? Will it allow React to access all the other 10 databases and end up with 10 distributed monoliths? Not a good idea.
+
+Distributed Monolith with Internal Shared Libraries
+
+What happens if one team uses a newer version of Prisma, but the central team manages the centralized shared-internal-node-js-orm-prisma-dao.js library and does not want to upgrade? The tendency is to get the libraries become old and have vunerabilitites. In order to migrate, you end up in a situation of all or nothing; either all migrate or no one. The result is waterfall migration projects. Vulnerabilities take longer to be updated and gating, which is terrible. Ideally, the teams should be able to move independently, but in this scenario, you are gated. 
+
+Upgrades are not trivial in this context of Distributed Monoliths. We are breaking isolation here via internal shared libraries and sharing database access. Handling such a scenario is complex and exponentially drags your team's productivity and troubleshooting time. 
+
+What is happening here is that we have high coupling. High coupling is terrible and is one of the original sins of software architecture/engineering. 
+API-Less is another bad idea
+You need to access the backend, and you need an API. APIs should be explicit and not coupled to a specific framework. APIs are your contract. React and frameworks abstracting that for the engineer are not a good idea. Apis (contracts) need to be framework-agnostic and interoperable. Hidding APIs into a framework is a terrible idea. APIs need to be leveraged explicitly. Coupling frameworks with APIs might introduce all sorts of backward compatibility problems and reduce interoperability; it's not the right thing to do. 
+Avoiding Traps
+It's ok to do SSR. Just use explicit APIs. Do not share databases directly with React. Here is some advice on how we can avoid some common mistakes that have been happening for decades on the backend:
+
+    Never share a database. 
+    Do not access the database from the React server-side component - call an explicit API.
+    Manage contracts (API) in an explicit form.
+    Do not create an internal shared library that uses ORMs; do not share such library with all applications.
+    Decouple your business logic from frameworks.
+    IF you need to create libraries, make sure they are Lean and have few dependencies, and avoid big frameworks like React.
+
+There is a lot of change happening, and we need to be careful not to repeat the same mistakes repeatedly. Focusing on principles and fundamentals is the way to go.
+
+Cheers,
+Diego Pacheco
